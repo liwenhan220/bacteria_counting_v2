@@ -321,7 +321,7 @@ def draw_bacteria(img, bact: Bacteria, color=[0, 255, 0]):
                     if [xx, yy] not in bact.coords:
                         img[xx][yy] = color
     # img[tuple(bact.get_center())] = [255, 255, 255]
-    cv2.putText(img, str(abs(int(bact.img_mean(bact.img) - bact.img_mean(bact.bg_img())))), bact.get_center()[::-1], cv2.FONT_HERSHEY_SIMPLEX, 0.3, [0,0,0],1)
+    # cv2.putText(img, str(abs(int(bact.img_mean(bact.img) - bact.img_mean(bact.bg_img())))), bact.get_center()[::-1], cv2.FONT_HERSHEY_SIMPLEX, 0.3, [0,0,0],1)
     return img
 
 def invert_img(img):
