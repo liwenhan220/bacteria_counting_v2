@@ -4,6 +4,8 @@ This is an improved (I think) version of my previous bacteria counting project
 
 # Results (Preview)
 
+(I haven't finished this part yet)
+
 # Prerequisites
 
 Have Pytorch, Matplotlib, numpy installed. The following are steps to train your bacteria model
