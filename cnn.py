@@ -41,8 +41,8 @@ class LeNet5(nn.Module):
         out = self.fc1(out)
         out = self.relu1(out)
         out = self.fc2(out)
-        return nn.Softmax(dim=1)(out)
-        # return out
+        # return nn.Softmax(dim=1)(out)
+        return out
 
 def train_one_epoch(epoch_index, model, train_loader, loss_fn, optimizer):
     model.train()

@@ -3,8 +3,9 @@ import os
 
 BIAS = 5
 MAX_DIAMETER = 10
-THRESHOLD = 5
-SWAB_THRESH = 5
+THRESHOLD = 4
+SWAB_THRESH = 4
+SIZE = [10, 100]
 
 directories = ["extracted_data", "debug"]
 
@@ -39,7 +40,7 @@ if __name__ == "__main__":
         name = "E.coli + {}.bmp".format(i)
         input_img_path = raw_folder + ecoli + name
         img = cv2.imread(input_img_path)
-        bacts, shape = generate_bacts(img, 0, bias = BIAS, size = [10, 60], debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = THRESHOLD, max_diameter=MAX_DIAMETER)
+        bacts, shape = generate_bacts(img, 0, bias = BIAS, size = SIZE, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = THRESHOLD, max_diameter=MAX_DIAMETER)
         if i <= test_split_index:
             test_bacts += bacts
         else:
@@ -52,7 +53,7 @@ if __name__ == "__main__":
         name = "S.typhi + {}.bmp".format(i)
         input_img_path = raw_folder + styphi + name
         img = cv2.imread(input_img_path)
-        bacts, shape = generate_bacts(img, 0, bias = BIAS, size = [10, 60], debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = THRESHOLD,  max_diameter=MAX_DIAMETER)
+        bacts, shape = generate_bacts(img, 0, bias = BIAS, size = SIZE, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = THRESHOLD,  max_diameter=MAX_DIAMETER)
         if i <= test_split_index:
             test_bacts += bacts
         else:
@@ -66,9 +67,9 @@ if __name__ == "__main__":
         input_img_path = raw_folder + negative + "swab-{}.bmp".format(i)
         img = cv2.imread(input_img_path)
         if i > 1:
-            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = [10, 60], cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
+            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = SIZE, cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
         else:
-            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = [10, 60], cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
+            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = SIZE, cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
 
         if i <= test_split_index:
             test_bacts += bacts
@@ -83,9 +84,9 @@ if __name__ == "__main__":
         input_img_path = raw_folder + new_neg + "-{}.bmp".format(i)
         img = cv2.imread(input_img_path)
         if i > 1:
-            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = [10, 60], cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
+            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = SIZE, cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
         else:
-            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = [10, 60], cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
+            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = SIZE, cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
 
         if i <= test_split_index:
             test_bacts += bacts
@@ -100,9 +101,9 @@ if __name__ == "__main__":
         input_img_path = raw_folder + new_neg + "-small swab5-{}.bmp".format(i)
         img = cv2.imread(input_img_path)
         if i > 1:
-            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = [10, 60], cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
+            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = SIZE, cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
         else:
-            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = [10, 60], cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
+            bacts, shape = generate_bacts(img, 1, bias = BIAS, size = SIZE, cover_corners= False, debug = True, debug_path = directories[1] + '/' + name, image_name=name, threshold = SWAB_THRESH, max_diameter=MAX_DIAMETER)
 
         if i <= test_split_index:
             test_bacts += bacts
