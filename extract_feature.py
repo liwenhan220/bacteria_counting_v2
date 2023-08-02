@@ -124,7 +124,7 @@ class Bacteria:
         return self.bg_mean
     
     def bg_normalized(self):
-        return ((self.img - self.get_bg_mean()) / 255.0).astype(np.float32)
+        return ((self.img / self.get_bg_mean())).astype(np.float32)
     
     def img_mean(self, img):
         g_img = np.mean(img, axis = 2)

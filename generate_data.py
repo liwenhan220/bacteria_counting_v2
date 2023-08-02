@@ -3,13 +3,13 @@ import os
 
 BIAS = 5
 MAX_DIAMETER = 10
-THRESHOLD = 4
-SWAB_THRESH = 4
+THRESHOLD = 2.8
+SWAB_THRESH = THRESHOLD
 SIZE = [10, 100]
 
 directories = ["extracted_data", "debug"]
 
-def get_img(bact):
+def get_img(bact:Bacteria):
     # return (bact.img / 255.0).astype(np.float32)
     return bact.bg_normalized()
 
