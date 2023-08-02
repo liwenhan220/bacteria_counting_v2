@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+import torchvision
 import pdb
 import numpy as np
 from torch.utils.data import TensorDataset, DataLoader
@@ -9,6 +10,16 @@ import os
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+class ResNetMNIST(nn.Module):
+  def __init__(self, num_classes = 2):
+    super().__init__()
+    # define model and loss
+    self.res_layer = torchvision.models.resnet18(num_classes=num_classes)
+    self.res_layer.conv1 = nn.Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+
+  def forward(self, x):
+    return self.res_layer(x)
+  
 class LeNet5(nn.Module):
     def __init__(self, input_shape, num_classes):
         super(LeNet5, self).__init__()
@@ -109,7 +120,7 @@ def reshape_data(data):
     data_len, width, height, channels = data.shape
     return np.array(data.reshape((data_len, channels, width, height)), dtype=np.float32)
 
-def train_loop(num_epochs, model_path, log_path):
+def train_loop(num_epochs, model_path, log_path, model_type = "lenet"):
     if not os.path.isdir(model_path):
         os.mkdir(model_path)
 
@@ -131,15 +142,18 @@ def train_loop(num_epochs, model_path, log_path):
     trainset = TensorDataset(trainX, trainY)
     train_loader = DataLoader(trainset, batch_size=64, shuffle=True)
 
-    valset = TensorDataset(valX, valY)
-    val_loader = DataLoader(valset)
-
     input_shape = valX[0][0].shape
     np.save(model_path + '/input_shape', input_shape)
 
 
     loss_fn = nn.CrossEntropyLoss()
-    model = LeNet5((3, *input_shape), 2)
+    if model_type == "lenet":
+        model = LeNet5((3, *input_shape), 2)
+    elif model_type == "resnet":
+        model = ResNetMNIST(2)
+    else:
+        print('unknown model type, I will just use lenet')
+        model = LeNet5((3, *input_shape), 2)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
 
     losses = []

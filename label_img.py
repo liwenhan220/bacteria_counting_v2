@@ -20,21 +20,22 @@ except:
     print("Error")
 
 MODEL_DIR = 'models'
-acc1 = np.load('log/val_acc1.npy')
-acc2 = np.load('log/val_acc2.npy')
+LOG_DIR = 'log'
+acc1 = np.load(LOG_DIR + '/val_acc1.npy')
+acc2 = np.load(LOG_DIR + '/val_acc2.npy')
 acc = acc1 + acc2
-MODEL_NUM = np.argmax(acc)
+MODEL_NUM = len(acc) - 1
 print('default model num: {}'.format(MODEL_NUM))
-# MODEL_PATH = 'models/bact_model_49'
 OUTPUT_PATH = "output_img.bmp"
-INPUT_SHAPE_FILE = 'models/input_shape.npy'
+INPUT_SHAPE_FILE = MODEL_DIR + '/input_shape.npy'
 WINDOW_SCALE = 1.7
+DISPLAY = False
 
 # IMG_NAME = "raw_data/Ecoli-positive/E.coli + 1.bmp"
-# IMG_NAME = "raw_data/Styphi-positive/S.typhi + 2.bmp"
+# IMG_NAME = "raw_data/Styphi-positive/S.typhi + 1.bmp"
 # IMG_NAME = "raw_data/negative/swab-1.bmp"
-# IMG_NAME = "raw_data/new negative/-1.bmp"
-IMG_NAME = "raw_data/new negative/-small swab5-1.bmp"
+IMG_NAME = "raw_data/new negative/-1.bmp"
+# IMG_NAME = "raw_data/new negative/-small swab5-1.bmp"
 
 
 for opt, arg in opts:
@@ -66,7 +67,7 @@ model.eval()
 max_shape = INPUT_SHAPE
 
 img = cv2.imread(IMG_NAME)
-bacts, _ = generate_bacts(img, None, size = [10, 60], bias = BIAS, cover_corners= False, debug = False, debug_path = None, threshold=THRESHOLD, max_diameter=MAX_DIAMETER)
+bacts, _ = generate_bacts(img, None, size = SIZE, bias = BIAS, cover_corners= False, debug = False, debug_path = None, threshold=THRESHOLD, max_diameter=MAX_DIAMETER)
 
 
 bact_count = 0
@@ -89,12 +90,13 @@ for bact in pbar:
         color = [255, 0, 0]
         noise_count += 1
     img_shape = np.array(img.shape[:2])[::-1]
-    cv2.imshow(IMG_NAME, cv2.resize(img, (img_shape * WINDOW_SCALE).astype(np.uint16)))
-    cv2.waitKey(1)
+    if DISPLAY:
+        cv2.imshow(IMG_NAME, cv2.resize(img, (img_shape * WINDOW_SCALE).astype(np.uint16)))
+        cv2.waitKey(1)
     draw_bacteria(img, bact, color)
 
 print('bacteria count: {}\nnoise count: {}\nbact rate: {}'.format(bact_count, noise_count, bact_count / (bact_count + noise_count)))
 cv2.imwrite(OUTPUT_PATH, img)
 
-input('PRESS ANY KEY TO END')
+# input('PRESS ANY KEY TO END')
 
