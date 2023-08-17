@@ -19,8 +19,8 @@ try:
 except:
     print("Error")
 
-MODEL_DIR = 'models'
-LOG_DIR = 'log'
+MODEL_DIR = 'lenet_models'
+LOG_DIR = 'lenet_logs'
 acc1 = np.load(LOG_DIR + '/val_acc1.npy')
 acc2 = np.load(LOG_DIR + '/val_acc2.npy')
 acc = acc1 + acc2
