@@ -1,102 +1,59 @@
-from extract_feature import *
-from generate_data import *
-from cnn import *
+from extract_feature import BacteriaGenerator, draw_bacteria, get_feature_img, get_symmetries
+from hyperparameters import *
+from generate_data import get_img
+from tqdm import tqdm
+from cnn import LeNet5, reshape_data
 import torch
 import numpy as np
-import cv2
-import sys
-import getopt
-import pdb
 
-argv = sys.argv[1:]
+def label_image(model_dir, model_num, orig_img, cover_corners = False, image_name = None, prediction_threshold = 0.5):
+    bacteria_generator = BacteriaGenerator(FIRST_BIAS, SECOND_BIAS, SIZE, THRESHOLD, FIRST_BLOCK_SIZE,
+                                       SECOND_BLOCK_SIZE, MAX_DIAMETER, False, cover_corners)
+    bact_img = orig_img.copy()
+    all_img = orig_img.copy()
 
-try:
-    opts, args = getopt.getopt(argv, "m:i:o:n:", 
-                                ["model_path=",
-                                "image_path=",
-                                "output_path=",
-                                "model_number="])
-except:
-    print("Error")
+    INPUT_SHAPE_FILE = model_dir + '/input_shape.npy'
 
-MODEL_DIR = 'lenet_models'
-LOG_DIR = 'lenet_logs'
-acc1 = np.load(LOG_DIR + '/val_acc1.npy')
-acc2 = np.load(LOG_DIR + '/val_acc2.npy')
-acc = acc1 + acc2
-MODEL_NUM = len(acc) - 1
-print('default model num: {}'.format(MODEL_NUM))
-OUTPUT_PATH = "output_img.bmp"
-INPUT_SHAPE_FILE = MODEL_DIR + '/input_shape.npy'
-WINDOW_SCALE = 1.7
-DISPLAY = False
-
-# IMG_NAME = "raw_data/Ecoli-positive/E.coli + 1.bmp"
-# IMG_NAME = "raw_data/Styphi-positive/S.typhi + 1.bmp"
-# IMG_NAME = "raw_data/negative/swab-1.bmp"
-IMG_NAME = "raw_data/new negative/-1.bmp"
-# IMG_NAME = "raw_data/new negative/-small swab5-1.bmp"
+    MODEL_PATH = model_dir + '/bact_model_{}'.format(model_num)
+    INPUT_SHAPE = tuple(np.load(INPUT_SHAPE_FILE))
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-for opt, arg in opts:
-    if opt in ['-m', '--model_path']:
-        MODEL_DIR = arg
+    model = LeNet5((3, *INPUT_SHAPE), 2)
+    model.load_state_dict(torch.load(MODEL_PATH))
+    model.to(device=device)
+    model.eval()
+    max_shape = INPUT_SHAPE
 
-    elif opt in ['-i', '--image_path']:
-        IMG_NAME = arg
+    bacts, _ = bacteria_generator.generate_bacts(orig_img, 
+                                                 None, image_name=image_name)
+    bact_count = 0
+    noise_count = 0
+    pbar = tqdm(bacts, total=len(bacts))
+    for bact in pbar:
 
-    elif opt in ['-o', '--output_path']:
-        OUTPUT_PATH = arg
-    
-    elif opt in ['-n', '--model_number']:
-        MODEL_NUM = arg
+        if bact.pad_img(max_shape) == -1:
+            continue
 
-MODEL_PATH = MODEL_DIR + '/bact_model_{}'.format(MODEL_NUM)
-INPUT_SHAPE = tuple(np.load(INPUT_SHAPE_FILE))
-print('model name: {}'.format(MODEL_PATH))
-print('img name: {}'.format(IMG_NAME))
-print('output path: {}'.format(OUTPUT_PATH))
+        f_img = get_img(bact)
+        f_img = get_feature_img([f_img[0]], [f_img[1]])[0]
+        f_img = f_img.reshape(1, *f_img.shape)
+        # f_img = np.array(get_symmetries(f_img))
+        tensor_img = torch.tensor(reshape_data(f_img)).to(device)
+        output = torch.mean(model(tensor_img), dim=0)
+        pbar.set_description('drawing bacteria on image')
+        if output[0] > output[1]:
+            label = 0
+        else:
+            label = 1
+        if label == 0:
+            color = [0, 255, 0]
+            bact_count += 1
+            draw_bacteria(bact_img, bact, color)
+        else:
+            color = [255, 0, 0]
+            noise_count += 1
+        draw_bacteria(all_img, bact, color)
+    return bact_img, all_img, bact_count, noise_count
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-model = LeNet5((3, *INPUT_SHAPE), 2)
-model.load_state_dict(torch.load(MODEL_PATH))
-model.to(device=device)
-model.eval()
-max_shape = INPUT_SHAPE
-
-img = cv2.imread(IMG_NAME)
-bacts, _ = generate_bacts(img, None, size = SIZE, bias = BIAS, cover_corners= False, debug = False, debug_path = None, threshold=THRESHOLD, max_diameter=MAX_DIAMETER)
-
-
-bact_count = 0
-noise_count = 0
-pbar = tqdm(bacts, total=len(bacts))
-for bact in pbar:
-
-    if bact.pad_img(max_shape) == -1:
-        continue
-
-    f_img = get_img(bact)
-    tensor_img = torch.tensor(reshape_data(f_img.reshape(1, *f_img.shape))).to(device)
-    output = model(tensor_img)[0]
-    pbar.set_description('drawing bacteria on image')
-    label = torch.argmax(output)
-    if label == 0:
-        color = [0, 255, 0]
-        bact_count += 1
-    else:
-        color = [255, 0, 0]
-        noise_count += 1
-    img_shape = np.array(img.shape[:2])[::-1]
-    if DISPLAY:
-        cv2.imshow(IMG_NAME, cv2.resize(img, (img_shape * WINDOW_SCALE).astype(np.uint16)))
-        cv2.waitKey(1)
-    draw_bacteria(img, bact, color)
-
-print('bacteria count: {}\nnoise count: {}\nbact rate: {}'.format(bact_count, noise_count, bact_count / (bact_count + noise_count)))
-cv2.imwrite(OUTPUT_PATH, img)
-
-# input('PRESS ANY KEY TO END')
 
