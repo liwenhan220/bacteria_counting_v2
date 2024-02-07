@@ -88,23 +88,30 @@ def find_bacteria(x: int, y: int, visited: np.ndarray, img: np.ndarray) -> Bacte
     return bact
     
 # pass thresholded img to make this work
-def find_all_bact(img, size=[0, float('inf')], max_shape = None, image_name = "current image") -> List[Bacteria]:
-    visited = np.full(img.shape, False)
+def find_all_bact(thresh_img, orig_img, label, max_diameter = float('inf'), expansion_size = 3, size=[0, float('inf')], max_shape = None, image_name = "current image") -> List[Bacteria]:
+    visited = np.full(thresh_img.shape, False)
 
     bacts = []
 
-    pbar = tqdm(range(len(img)), total=len(img))
+    pbar = tqdm(range(len(thresh_img)), total=len(thresh_img))
     for i in pbar:
         pbar.set_description('processing {}'.format(image_name))
-        for j in range(len(img[i])):
-            bact = find_bacteria(i, j, visited, img)
+        for j in range(len(thresh_img[i])):
+            bact = find_bacteria(i, j, visited, thresh_img)
             visited[i][j] = True
             if bact is None or bact.size() < min(size) or bact.size() > max(size):
                 continue
-
+            if bact.est_diameter() >= max_diameter:
+                continue
             bact_shape = bact.bounds.suggest_shape()
             if max_shape is not None and (bact_shape[0] > max_shape[0] or bact_shape[1] > max_shape[1]):
                 continue
+            bact.expand_bacteria(expansion_size, thresh_img)
+
+            bact.retrieve_pixels(orig_img)
+            bact.get_partial_img(orig_img)
+            bact.get_bg_mean()
+            bact.label = label
             bacts.append(bact)
 
     return bacts
@@ -130,17 +137,22 @@ def draw_bacteria(img, bact: Bacteria, color=[0, 255, 0], mode="draw"):
     if mode == "draw":
         for x, y in bact.coords:
             if bact.is_boundary(x, y):
-                for i, j in [[1,0], [0,1], [1,1], [1,-1]]:
-                    for w in [1, -1]:
-                        xx = x + w * i
-                        yy = y + w * j
-                        if xx < 0 or yy < 0 or xx >= len(img) or yy >= len(img[0]):
-                            continue
-                        if [xx, yy] not in bact.coords:
-                            img[xx][yy] = color
+                for xx, yy in bact.get_neighbors(x, y):
+                    if xx < 0 or yy < 0 or xx >= len(img) or yy >= len(img[0]):
+                        continue
+                    if [xx, yy] not in bact.coords:
+                        img[xx][yy] = color
     elif mode == "rectangle":
         gap = 2
         cv2.rectangle(img, (max(bact.bounds.left - gap, 0), max(bact.bounds.top - gap, 0)), (min(bact.bounds.right + 2, len(img[0])), min(bact.bounds.bottom + 2, len(img))), color, 1)
+    elif mode == 'feature':
+        for x, y in bact.expanded_coords:
+            if bact.is_boundary(x, y, bact.expanded_coords):
+                for xx, yy in bact.get_neighbors(x, y):
+                    if xx < 0 or yy < 0 or xx >= len(img) or yy >= len(img[0]):
+                        continue
+                    if [xx, yy] not in bact.expanded_coords:
+                        img[xx][yy] = color
 
     return img
 
@@ -156,9 +168,6 @@ def bg_normalize_img(img):
     filtered_mean = masked.sum() / filtered.sum()
 
     normalized = (img / filtered_mean).astype(np.float32)
-
-    # mode = np.argmax(np.bincount(img.flatten()))
-    # normalized = (img / mode).astype(np.float32)
 
     nmax = np.max(normalized)
     nmin = np.min(normalized)
@@ -186,49 +195,41 @@ class BacteriaGenerator:
     def preprocess(self, orig_img):
         img = orig_img.copy()
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # img = bg_normalize_img(img=img)
         first_threshold = custom_adaptive_threshold(img, self.first_block_size, const = self.first_bias, mode="foreground")
         
         img = first_threshold
-        # first_filtered = cv2.bitwise_and(img, img, mask=first_threshold)
-        # img = custom_adaptive_threshold(first_filtered, self.second_block_size, const=self.second_bias, mode = "foreground")
         if self.cover_corners:
             img = roi(img, is_threshold=True)
         return img
     
     def preprocess_v2(self, orig_img):
         img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
-        ret, thresh = cv2.threshold(img,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        smoothed_image = img
+        grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
+        grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
+
+        gradient_magnitude = np.maximum(np.abs(grad_x), np.abs(grad_y))
+        # ret, thresh = cv2.threshold(img,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        
+        grad_img = invert_img(gradient_magnitude)
+        img = np.logical_and(grad_img <= 247, grad_img >= 8).astype(np.uint8)
+
         if self.cover_corners:
             img = roi(img, is_threshold=True)
-        return thresh
+        return img
 
     
     def generate_bacts(self, img, label, image_name = "current_image.bmp", debug_path = "for_debug"):
         if self.debug:
             debug_img = img.copy()
-        processed_img = self.preprocess(img)
-        bacts = find_all_bact(processed_img, size=self.size_bounds, image_name=image_name)
+        processed_img = self.preprocess_v2(img)
+        if self.debug:
+            cv2.imwrite(os.path.join(debug_path, 'threshold_' + image_name), processed_img * 255)
+        bacts = find_all_bact(processed_img, img, label, max_diameter = self.max_diameter, expansion_size=3, size=self.size_bounds, image_name=image_name)
         bact_count = 0
         max_shape = (1, 1)
         final_bacts = []
         for bact in bacts:
-            for _ in range(3):
-                bact.expand_bacteria()
-            bact.retrieve_pixels(img)
-            bact.get_partial_img(img)
-            bact.get_bg_mean()
-            bact.label = label
-
-            # bact_gray_img = np.mean(bact.img, axis=2).flatten().astype(np.uint8)
-            # bg_gray_image = np.mean(bact.bg_img(), axis=2).flatten().astype(np.uint8)
-            # diff = abs(np.median(np.bincount(bact_gray_img)) - np.median(np.bincount(bg_gray_image)))
-            # if diff < self.filter_threshold:
-            #     continue
-
-            if bact.est_diameter() >= self.max_diameter:
-                continue
-
             if self.debug:
                 draw_bacteria(debug_img, bact, [0, 255, 0], mode="draw")
                 bact_count += 1
@@ -237,35 +238,6 @@ class BacteriaGenerator:
             max_shape = max_box(max_shape, bact.img_shape())
         if self.debug:
             cv2.imwrite(os.path.join(debug_path, image_name), debug_img)
-            cv2.imwrite(os.path.join(debug_path, 'threshold_' + image_name), processed_img * 255)
         return final_bacts, max_shape
     
-
-    def f_generate_bacts(self, img, label, preprocess_key, image_name = "current image", debug_path = "for_debug.bmp"):
-        if self.debug:
-            debug_img = img.copy()
-        processed_img = preprocess_key(img)
-        bacts = find_all_bact(processed_img, size=self.size_bounds, image_name=image_name)
-        bact_count = 0
-        max_shape = (1, 1)
-        final_bacts = []
-        for bact in bacts:
-            bact.expand_bacteria()
-            bact.retrieve_pixels(img)
-            bact.get_partial_img(img)
-            bact.get_bg_mean()
-            bact.label = label
-
-            if bact.est_diameter() >= self.max_diameter:
-                continue
-
-            if self.debug:
-                draw_bacteria(debug_img, bact, [0, 255, 0], mode="draw")
-                bact_count += 1
-
-            final_bacts.append(bact)
-            max_shape = max_box(max_shape, bact.img_shape())
-        if self.debug:
-            cv2.imwrite(debug_path, debug_img)
-        return final_bacts, max_shape
     

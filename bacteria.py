@@ -10,23 +10,34 @@ import matplotlib.pyplot as plt
 class Bacteria:
     def __init__(self):
         self.coords = [] # coordinates of the bacteria
+        self.expanded_coords = []
         self.x_coords = [] # X values of the coordinate
         self.y_coords = [] # y values of the coordinate
         self.img = None # img to store bacteria
+        self.boundary = []
         self.bounds = Bounds() # box to bound bateria
         self.label = None 
         self.part_img = None
         self.bg_mean = None
         self.part_img_shape = (28, 28)
 
-    def add_coord(self, x, y):
+    def add_coord(self, x, y, expanding=False):
         # add to my lists
         self.coords.append([x, y])
         self.x_coords.append(x)
         self.y_coords.append(y)
 
+        self.expanded_coords.append([x, y])
         # update bounds
         self.bounds.add((x, y))
+
+    def reset_boundary(self):
+        result = []
+        for i, j in self.expanded_coords:
+            if self.is_boundary(i, j, self.expanded_coords):
+                result.append([i, j])
+        self.boundary = result
+        return result
 
     def get_pixel_mean(self):
         return self.pixel_mean
@@ -37,35 +48,34 @@ class Bacteria:
     def get_neighbors(self, x, y):
         neighbors = []
         for i, j in [[1, 0], [0, 1], [1, 1], [1, -1]]:
-            xx = x + i
-            yy = y + j
-            if not self.out_of_bounds(xx, yy):
-                neighbors.append([xx, yy])
+            for a in [1, -1]:
+                xx = x + i * a
+                yy = y + j * a
+                if not self.out_of_bounds(xx, yy):
+                    neighbors.append([xx, yy])
         return neighbors
     
-    def expand_bacteria(self):
-        new_coords = []
-        for x, y in self.coords:
-            for xx, yy in self.get_neighbors(x, y):
-                if [xx, yy] in new_coords or [xx, yy] in self.coords:
-                    continue
-                new_coords.append([xx, yy])
-                self.bounds.add((xx, yy))
-        self.coords += new_coords
+    def expand_bacteria(self, ntimes, img):
+        self.reset_boundary()
+        # print(self.boundary)
+        for _ in range(ntimes):
+            for x, y in self.boundary.copy():
+                for xx, yy in self.get_neighbors(x, y):
+                    if [xx, yy] in self.expanded_coords or xx >= img.shape[0] or yy >= img.shape[1]:
+                        continue
+                    self.expanded_coords.append([xx, yy])
+                    self.boundary.append([xx, yy])
+                    self.bounds.add([xx, yy])
+                self.boundary.remove([x, y])
 
     def retrieve_pixels(self, img):
         self.img = np.zeros((*(self.bounds.suggest_shape()), 3)).astype(np.uint8)
         self.pixels = []
 
-        for x, y in self.coords:
-            # Copy pixel
-            if x >= img.shape[0] or y >= img.shape[1]:
-                continue
+        for x, y in self.expanded_coords:
             self.img[x-self.bounds.top][y-self.bounds.left][0] = img[x][y][0]
             self.img[x-self.bounds.top][y-self.bounds.left][1] = img[x][y][1]
-            self.img[x-self.bounds.top][y-self.bounds.left][2] = img[x][y][2]
-
-            
+            self.img[x-self.bounds.top][y-self.bounds.left][2] = img[x][y][2]           
     
     def pad_img(self, desired_shape):
         height, width = self.img_shape()
@@ -143,13 +153,12 @@ class Bacteria:
     def get_feature(self):
         return self.img
 
-    def is_boundary(self, x, y):
-        for i, j in [[1,0], [0,1], [1,1], [1,-1]]:
-            for a in [1, -1]:
-                xx = x + i * a
-                yy = y + j * a
-                if [xx, yy] not in self.coords:
-                    return True
+    def is_boundary(self, x, y, coords = None):
+        if coords is None:
+            coords = self.coords
+        for xx, yy in self.get_neighbors(x, y):
+            if [xx, yy] not in coords:
+                return True
         return False
     
     def dist(self, pt1, pt2):

@@ -3,8 +3,8 @@ import numpy as np
 import cv2
 import os
 
-INPUT_DIR = "extra_data/raw_inputs"
-OUTPUT_DIR = "extra_data/raw_outputs"
+INPUT_DIR = "extra_data/input_imgs_4"
+OUTPUT_DIR = "extra_data/output_imgs_4"
 MODEL_DIR = 'models'
 LOG_DIR = 'logs'
 COVER_CORNERS = False # for 2, 3, 4
