@@ -149,6 +149,7 @@ def train_loop(num_epochs, model_path, log_path, model_type = "lenet", load_path
         val_acc2 = list(np.load(log_path + '/val_acc2.npy'))
         num = len(val_acc2)
         model.load_state_dict(torch.load(model_path + "/bact_model_{}".format(num)))
+        # pdb.set_trace()
     else:
         losses = []
         accs1 = []
@@ -180,5 +181,5 @@ def train_loop(num_epochs, model_path, log_path, model_type = "lenet", load_path
 
     
 if __name__ == "__main__":
-    # train_loop(100, 'models', 'logs', load_path=['logs', 'models'])
-    train_loop(100, 'models', 'logs', load_path=None)
+    # train_loop(150, 'models', 'logs', load_path=['logs', 'models'])
+    train_loop(150, 'grad_model', 'grad_log', load_path=None)

@@ -4,7 +4,7 @@ import statsmodels.api as sm
 import scipy.stats as stats
 import pdb
 
-OUTPUT_DIR = "extra_data/output_imgs"
+OUTPUT_DIR = "extra_data/output_imgs_4"
 MEAN_VIEW = False
 def get_info(name): # Is bacteria, scale
     if name[0] == "-":
