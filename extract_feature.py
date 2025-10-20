@@ -4,7 +4,7 @@ import numpy as np
 from typing import List
 from tqdm import tqdm
 from frontier import Frontier
-from my_threshold import custom_adaptive_threshold
+# from my_threshold import custom_adaptive_threshold
 from bacteria import Bacteria
 import pdb
 import os
@@ -163,21 +163,21 @@ def invert_img(img):
     return new_img.astype(np.uint8)
 
 # Input a grayscaled image only
-def bg_normalize_img(img):
-    filtered = invert_img(custom_adaptive_threshold(img, 21, 5))
-    masked = cv2.bitwise_and(img, img, mask=filtered)
-    filtered_mean = masked.sum() / filtered.sum()
+# def bg_normalize_img(img):
+#     filtered = invert_img(custom_adaptive_threshold(img, 21, 5))
+#     masked = cv2.bitwise_and(img, img, mask=filtered)
+#     filtered_mean = masked.sum() / filtered.sum()
 
-    normalized = (img / filtered_mean).astype(np.float32)
+#     normalized = (img / filtered_mean).astype(np.float32)
 
-    nmax = np.max(normalized)
-    nmin = np.min(normalized)
+#     nmax = np.max(normalized)
+#     nmin = np.min(normalized)
 
-    new_max = 255.0
-    new_min = 0.0
+#     new_max = 255.0
+#     new_min = 0.0
 
-    final = (normalized - nmin) * ((new_max - new_min) / (nmax - nmin)) + new_min
-    return final.astype(np.uint8)
+#     final = (normalized - nmin) * ((new_max - new_min) / (nmax - nmin)) + new_min
+#     return final.astype(np.uint8)
 
 class BacteriaGenerator:
     def __init__(self, size_bounds, max_diameter, debug, cover_corners):
