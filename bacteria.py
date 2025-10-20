@@ -98,9 +98,9 @@ class Bacteria:
         return self.part_img
     
     def bg_img(self, bias = 5):
-        pimg = cv2.cvtColor(self.part_img, cv2.COLOR_BGR2GRAY)
+        pimg = np.array(cv2.cvtColor(self.part_img, cv2.COLOR_BGR2GRAY))
 
-        _, pimg = cv2.threshold(pimg, median_point(pimg, const = bias), 255, cv2.THRESH_BINARY)
+        _, pimg = cv2.threshold(pimg, np.median(pimg.flatten()) - bias, 255, cv2.THRESH_BINARY)
         mask = (pimg/255).astype(np.uint8)
         bg_img = cv2.bitwise_and(self.part_img, self.part_img, mask=mask)
         return bg_img

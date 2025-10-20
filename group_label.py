@@ -3,12 +3,12 @@ import numpy as np
 import cv2
 import os
 
-INPUT_DIR = "extra_data/input_imgs_4"
-OUTPUT_DIR = "extra_data/output_imgs_4"
-MODEL_DIR = 'models'
-LOG_DIR = 'logs'
+INPUT_DIR = "raw_data/Ecoli-positive"
+OUTPUT_DIR = "Ecoli-positive_labeled"
+MODEL_DIR = 'grad_model'
+LOG_DIR = 'grad_log'
 COVER_CORNERS = False # for 2, 3, 4
-MODEL_NUM = 50
+MODEL_NUM = 49
 # PREDICTION_THRESHOLD = 0.5
 
 # Define the font and scale
@@ -17,9 +17,9 @@ font_scale = 2
 font_thickness = 10
 font_color = (0, 0, 0)  # White color in BGR
 
-acc1 = np.load(LOG_DIR + '/val_acc1.npy')
-acc2 = np.load(LOG_DIR + '/val_acc2.npy')
-acc = acc1 + acc2
+# acc1 = np.load(LOG_DIR + '/val_acc1.npy')
+# acc2 = np.load(LOG_DIR + '/val_acc2.npy')
+# acc = acc1 + acc2
 print('default model num: {}'.format(MODEL_NUM))
 INPUT_SHAPE_FILE = MODEL_DIR + '/input_shape.npy'
 
