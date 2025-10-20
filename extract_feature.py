@@ -8,6 +8,7 @@ from my_threshold import custom_adaptive_threshold
 from bacteria import Bacteria
 import pdb
 import os
+from hyperparameters import C
 #####################
 # Utilities 
 
@@ -179,30 +180,13 @@ def bg_normalize_img(img):
     return final.astype(np.uint8)
 
 class BacteriaGenerator:
-    def __init__(self, first_bias, 
-                 second_bias, size_bounds, filter_threshold, first_block_size, 
-                 second_block_size, max_diameter, debug, cover_corners):
-        self.first_bias = first_bias
-        self.second_bias = second_bias
+    def __init__(self, size_bounds, max_diameter, debug, cover_corners):
         self.size_bounds = size_bounds
-        self.filter_threshold = filter_threshold
-        self.first_block_size = first_block_size
-        self.second_block_size = second_block_size
         self.max_diameter = max_diameter
         self.debug = debug
         self.cover_corners = cover_corners
-
-    def preprocess(self, orig_img):
-        img = orig_img.copy()
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        first_threshold = custom_adaptive_threshold(img, self.first_block_size, const = self.first_bias, mode="foreground")
-        
-        img = first_threshold
-        if self.cover_corners:
-            img = roi(img, is_threshold=True)
-        return img
     
-    def preprocess_v2(self, orig_img):
+    def preprocess_v2(self, orig_img, C = C):
         img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
         smoothed_image = img
         grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
@@ -212,17 +196,85 @@ class BacteriaGenerator:
         # ret, thresh = cv2.threshold(img,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
         
         grad_img = invert_img(gradient_magnitude)
-        img = np.logical_and(grad_img <= 247, grad_img >= 8).astype(np.uint8)
-
-        if self.cover_corners:
-            img = roi(img, is_threshold=True)
+        img = np.logical_and(grad_img <= 255-C, grad_img >= C).astype(np.uint8)
         return img
 
+    def preprocess_v3(self, orig_img, C=C, debug_path=""):
+        img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
+        smoothed_image = img
+        grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
+        grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
+        gradient_magnitude = np.maximum(np.abs(grad_x), np.abs(grad_y))
+        grad_img = invert_img(gradient_magnitude)
+        grad_img[grad_img >= 255 - C] = 0
+        grad_img[grad_img <= C] = 0
+
+        grad_x_vis, grad_y_vis, quad_vis = self.sign_visualize(grad_x, grad_y, eps=C)
+        if self.debug:
+            cv2.imwrite(os.path.join(debug_path, 'grad_x_vis.png'), grad_x_vis)
+            cv2.imwrite(os.path.join(debug_path, 'grad_y_vis.png'), grad_y_vis)
+            cv2.imwrite(os.path.join(debug_path, 'quad_vis.png'), quad_vis)
+        return grad_img
     
+    def preprocess_v4(self, orig_img, C=C, debug_path=""):
+        img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
+        smoothed_image = img
+        grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
+        grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
+        grad_x[grad_x < 0] = 0
+        grad_y[grad_y < 0] = 0
+        gradient_magnitude = np.maximum(np.abs(grad_x), np.abs(grad_y))
+        grad_img = invert_img(gradient_magnitude)
+        grad_img[grad_img >= 255 - C] = 0
+        grad_img[grad_img <= C] = 0
+
+        grad_x_vis, grad_y_vis, quad_vis = self.sign_visualize(grad_x, grad_y, eps=C)
+        if self.debug:
+            cv2.imwrite(os.path.join(debug_path, 'grad_x_vis.png'), grad_x_vis)
+            cv2.imwrite(os.path.join(debug_path, 'grad_y_vis.png'), grad_y_vis)
+            cv2.imwrite(os.path.join(debug_path, 'quad_vis.png'), quad_vis)
+        return grad_img
+    
+    
+    def sign_visualize(self, grad_x, grad_y, eps=1e-6):
+        H, W = grad_x.shape
+
+        # --- 1) 单轴正负显示（红=正，蓝=负，灰=近0） ---
+        def axis_sign_vis(g):
+            pos = (g >  eps)
+            neg = (g < -eps)
+            zer = ~(pos | neg)
+
+            vis = np.zeros((H, W, 3), np.uint8)
+            vis[pos] = (0, 0, 255)        # 红：正
+            vis[neg] = (255, 0, 0)        # 蓝：负
+            vis[zer] = (128, 128, 128)    # 灰：零/极小
+            return vis
+
+        gx_vis = axis_sign_vis(grad_x)
+        gy_vis = axis_sign_vis(grad_y)
+
+        # --- 2) 象限合成：同时看 x/y 正负 ---
+        # (++): 黄, (+-): 洋红, (-+): 青, (--): 绿, 0区：灰
+        px = (grad_x >  eps); nx = (grad_x < -eps)
+        py = (grad_y >  eps); ny = (grad_y < -eps)
+        zer = ~(px | nx | py | ny)
+
+        quad = np.zeros((H, W, 3), np.uint8)
+        quad[ px &  py] = (0, 255, 255)   # 黄 (BGR)  x+, y+
+        quad[ px &  ny] = (255, 0, 255)   # 洋红       x+, y-
+        quad[ nx &  py] = (255, 255, 0)   # 青         x-, y+
+        quad[ nx &  ny] = (0, 255, 0)     # 绿         x-, y-
+        quad[zer]       = (128,128,128)   # 灰：近0
+
+        return gx_vis, gy_vis, quad
+
     def generate_bacts(self, img, label, image_name = "current_image.bmp", debug_path = "for_debug"):
         if self.debug:
             debug_img = img.copy()
-        processed_img = self.preprocess_v2(img)
+        processed_img = self.preprocess_v3(img, debug_path=debug_path)
+        if self.cover_corners:
+            processed_img = roi(processed_img, is_threshold=True)
         if self.debug:
             cv2.imwrite(os.path.join(debug_path, 'threshold_' + image_name), processed_img * 255)
         bacts = find_all_bact(processed_img, img, label, max_diameter = self.max_diameter, expansion_size=3, size=self.size_bounds, image_name=image_name)
@@ -237,7 +289,7 @@ class BacteriaGenerator:
             final_bacts.append(bact)
             max_shape = max_box(max_shape, bact.img_shape())
         if self.debug:
-            cv2.imwrite(os.path.join(debug_path, image_name), debug_img)
+            cv2.imwrite(os.path.join(debug_path, "debug" + image_name), debug_img)
         return final_bacts, max_shape
     
     

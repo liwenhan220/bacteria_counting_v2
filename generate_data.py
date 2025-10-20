@@ -23,8 +23,7 @@ test_bacts = []
 train_bacts = []
 max_shape = (28, 28) # images must be at least 28x28
 test_split_index = 1
-bacteria_generator = BacteriaGenerator(FIRST_BIAS, SECOND_BIAS, SIZE, THRESHOLD, FIRST_BLOCK_SIZE,
-                                       SECOND_BLOCK_SIZE, MAX_DIAMETER, True, True)
+bacteria_generator = BacteriaGenerator(SIZE, MAX_DIAMETER, True, True)
 
 if __name__ == "__main__":
     # load ecoli data
