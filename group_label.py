@@ -8,8 +8,8 @@ OUTPUT_DIR = "extra_data/output_imgs_4"
 MODEL_DIR = 'models'
 LOG_DIR = 'logs'
 COVER_CORNERS = False # for 2, 3, 4
-MODEL_NUM = 100
-PREDICTION_THRESHOLD = 0.5
+MODEL_NUM = 50
+# PREDICTION_THRESHOLD = 0.5
 
 # Define the font and scale
 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -45,7 +45,7 @@ for image in images:
     img = cv2.imread(INPUT_DIR + '/' + image)
     if img is None:
         continue
-    bact_img, all_img, bact_count, noise_count = label_image(MODEL_DIR, MODEL_NUM, img, COVER_CORNERS, image_name=image, prediction_threshold=PREDICTION_THRESHOLD)
+    bact_img, all_img, bact_count, noise_count = label_image(MODEL_DIR, MODEL_NUM, img, COVER_CORNERS, image_name=image)
     
     position = (10, bact_img.shape[0] - 10)  # Bottom left corner
 
