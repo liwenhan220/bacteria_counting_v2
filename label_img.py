@@ -6,9 +6,8 @@ from cnn import LeNet5, reshape_data
 import torch
 import numpy as np
 
-def label_image(model_dir, model_num, orig_img, cover_corners = False, image_name = None, prediction_threshold = 0.5):
-    bacteria_generator = BacteriaGenerator(FIRST_BIAS, SECOND_BIAS, SIZE, THRESHOLD, FIRST_BLOCK_SIZE,
-                                       SECOND_BLOCK_SIZE, MAX_DIAMETER, False, cover_corners)
+def label_image(model_dir, model_num, orig_img, cover_corners = False, image_name = None):
+    bacteria_generator = BacteriaGenerator(SIZE, MAX_DIAMETER, False, cover_corners)
     bact_img = orig_img.copy()
     all_img = orig_img.copy()
 

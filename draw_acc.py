@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-log_path = 'logs'
+log_path = 'grad_log'
 losses = np.load(log_path + '/loss_hist.npy')
 accs1 = np.load(log_path + '/acc1_hist.npy')
 accs2 = np.load(log_path + '/acc2_hist.npy')
