@@ -217,6 +217,7 @@ class BacteriaGenerator:
         return grad_img
     
     def preprocess_v4(self, orig_img, C=C, debug_path=""):
+        # Single sided preprocessing
         img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
         smoothed_image = img
         grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
@@ -235,6 +236,100 @@ class BacteriaGenerator:
             cv2.imwrite(os.path.join(debug_path, 'quad_vis.png'), quad_vis)
         return grad_img
     
+    def fill_1d_region(self, row, max_grad_diameter = 5, edge_shrink_length = 1):
+        # determined filled region
+        # Protocol: if left is not found but grad change occured, prepare to record pixels and keep going right
+        # If left is found, right is not found and the grad sign is the same, still on the left region of the bacteria, keep going right
+        # If left is found, right is not found and the grad is zero, we are likely in the middle region, go right for at most diameter steps. If no grad, stop and reset all parameters
+        # If left is found, right is not found the grad is opposite sign, on the right side, document first right found
+        # If first right is found and grad is 0, stop and reset all parameters
+        filled_indices = []
+        local_filled_indices = []
+        leftFound = False
+        firstRightFound = False
+        left_grad_sign = 0
+        last_left_index = None
+        for j, val in enumerate(row):
+            if not leftFound and val != 0:
+                # left first found, prepare to record
+                leftFound = True
+                left_grad_sign = np.sign(val)
+                firstRightFound = False
+                local_filled_indices = [j]
+            elif leftFound and not firstRightFound:
+                grad_sign = np.sign(val)
+                if grad_sign == left_grad_sign:
+                    # still on left side
+                    local_filled_indices.append(j)
+                elif grad_sign == 0:
+                    # likely middle region, go on for a while
+                    if last_left_index is None:
+                        last_left_index = j-1
+                    if j - last_left_index >= max_grad_diameter:
+                        # Stop and reset
+                        leftFound = False
+                        firstRightFound = False
+                        left_grad_sign = 0
+                        local_filled_indices = []
+                        last_left_index = None
+                    else:
+                        local_filled_indices.append(j)
+                else: # grad sign is opposite
+                    # right side found
+                    firstRightFound = True
+                    local_filled_indices.append(j)
+            elif firstRightFound:
+                grad_sign = np.sign(val)
+                if grad_sign == 0:
+                    # stop and reset
+                    local_filled_indices = local_filled_indices[edge_shrink_length: -edge_shrink_length]
+                    filled_indices += local_filled_indices
+                    leftFound = False
+                    firstRightFound = False
+                    last_left_index = None
+                    left_grad_sign = 0
+                    local_filled_indices = []
+                else:
+                    # still on right side
+                    local_filled_indices.append(j)
+            elif j == len(row) - 1:
+                # reach the end without finding right side
+                filled_indices += local_filled_indices[edge_shrink_length:]
+
+        reconstructed_row = np.zeros_like(row)
+        reconstructed_row[filled_indices] = 1
+        return reconstructed_row
+    
+    def preprocess_v5(self, orig_img, C=C, debug_path=""):
+        img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
+        smoothed_image = img
+        grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
+        grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
+
+        grad_x[np.abs(grad_x) >= 255 - C] = 0
+        grad_x[np.abs(grad_x) <= C] = 0
+        grad_y[np.abs(grad_y) >= 255 - C] = 0
+        grad_y[np.abs(grad_y) <= C] = 0
+
+        preprocessed_grad_x = grad_x.copy()
+        for i, row in enumerate(grad_x):
+            filled_row = self.fill_1d_region(row)
+            preprocessed_grad_x[i] = filled_row
+
+        preprocessed_grad_y = grad_y.copy()
+        for i in range(grad_y.shape[1]):
+            col = grad_y[:, i]
+            filled_col = self.fill_1d_region(col)
+            preprocessed_grad_y[:, i] = filled_col
+
+        preprocessed = cv2.bitwise_and(preprocessed_grad_x, preprocessed_grad_y).astype(np.uint8)
+    
+        grad_x_vis, grad_y_vis, quad_vis = self.sign_visualize(grad_x, grad_y, eps=C)
+        if self.debug:
+            cv2.imwrite(os.path.join(debug_path, 'grad_x_vis.png'), grad_x_vis)
+            cv2.imwrite(os.path.join(debug_path, 'grad_y_vis.png'), grad_y_vis)
+            cv2.imwrite(os.path.join(debug_path, 'quad_vis.png'), quad_vis)
+        return preprocessed
     
     def sign_visualize(self, grad_x, grad_y, eps=1e-6):
         H, W = grad_x.shape
@@ -272,7 +367,7 @@ class BacteriaGenerator:
     def generate_bacts(self, img, label, image_name = "current_image.bmp", debug_path = "for_debug"):
         if self.debug:
             debug_img = img.copy()
-        processed_img = self.preprocess_v3(img, debug_path=debug_path)
+        processed_img = self.preprocess_v5(img, debug_path=debug_path)
         if self.cover_corners:
             processed_img = roi(processed_img, is_threshold=True)
         if self.debug:

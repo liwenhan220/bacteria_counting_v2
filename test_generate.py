@@ -23,5 +23,5 @@ for file in files:
                                                             0, 
                                                             image_name = file, 
                                                             debug_path = DEBUG_PATH)
-    except:
-        print(f"{file} cannot be loaded")
+    except Exception as e:
+        print(e)
