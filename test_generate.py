@@ -11,7 +11,7 @@ DEBUG_PATH = "output_folder"
 
 os.makedirs(DEBUG_PATH, exist_ok=True)
 
-bacteria_generator = BacteriaGenerator(SIZE, MAX_DIAMETER, True, True)
+bacteria_generator = BacteriaGenerator(SIZE, MAX_DIAMETER, True, False)
 bacteria_generator.debug = True
 # input_img_path = "image2.jpg"
 files = os.listdir(INPUT_FOLDER)

@@ -236,7 +236,7 @@ class BacteriaGenerator:
             cv2.imwrite(os.path.join(debug_path, 'quad_vis.png'), quad_vis)
         return grad_img
     
-    def fill_1d_region(self, row, max_grad_diameter = 5, edge_shrink_length = 1):
+    def fill_1d_region(self, row, left_confirm_count = 2, max_grad_diameter = 5, edge_shrink_length = 1):
         # determined filled region
         # Protocol: if left is not found but grad change occured, prepare to record pixels and keep going right
         # If left is found, right is not found and the grad sign is the same, still on the left region of the bacteria, keep going right
@@ -250,12 +250,15 @@ class BacteriaGenerator:
         left_grad_sign = 0
         last_left_index = None
         for j, val in enumerate(row):
-            if not leftFound and val != 0:
-                # left first found, prepare to record
-                leftFound = True
-                left_grad_sign = np.sign(val)
-                firstRightFound = False
-                local_filled_indices = [j]
+            if not leftFound:
+                future_vals = row[j: min(j + left_confirm_count, len(row))]
+                grad_addition = sum(np.sign(future_vals))
+                if abs(grad_addition) >= left_confirm_count:
+                    # left first found, prepare to record
+                    leftFound = True
+                    left_grad_sign = np.sign(val)
+                    firstRightFound = False
+                    local_filled_indices = [j]
             elif leftFound and not firstRightFound:
                 grad_sign = np.sign(val)
                 if grad_sign == left_grad_sign:
@@ -300,9 +303,10 @@ class BacteriaGenerator:
         reconstructed_row[filled_indices] = 1
         return reconstructed_row
     
-    def preprocess_v5(self, orig_img, C=C, debug_path=""):
+    def preprocess_v5(self, orig_img, C=C, debug_path="", img_name=""):
         img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
         smoothed_image = img
+        # smoothed_image = cv2.GaussianBlur(img, (3,3), sigmaX=0.8, sigmaY=0.8)
         grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
         grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
 
@@ -326,9 +330,9 @@ class BacteriaGenerator:
     
         grad_x_vis, grad_y_vis, quad_vis = self.sign_visualize(grad_x, grad_y, eps=C)
         if self.debug:
-            cv2.imwrite(os.path.join(debug_path, 'grad_x_vis.png'), grad_x_vis)
-            cv2.imwrite(os.path.join(debug_path, 'grad_y_vis.png'), grad_y_vis)
-            cv2.imwrite(os.path.join(debug_path, 'quad_vis.png'), quad_vis)
+            cv2.imwrite(os.path.join(debug_path, f'grad_x_vis_{img_name}'), grad_x_vis)
+            cv2.imwrite(os.path.join(debug_path, f'grad_y_vis_{img_name}'), grad_y_vis)
+            cv2.imwrite(os.path.join(debug_path, f'quad_vis_{img_name}'), quad_vis)
         return preprocessed
     
     def sign_visualize(self, grad_x, grad_y, eps=1e-6):
@@ -367,7 +371,7 @@ class BacteriaGenerator:
     def generate_bacts(self, img, label, image_name = "current_image.bmp", debug_path = "for_debug"):
         if self.debug:
             debug_img = img.copy()
-        processed_img = self.preprocess_v5(img, debug_path=debug_path)
+        processed_img = self.preprocess_v5(img, debug_path=debug_path, img_name=image_name)
         if self.cover_corners:
             processed_img = roi(processed_img, is_threshold=True)
         if self.debug:
