@@ -388,7 +388,7 @@ class BacteriaGenerator:
             final_bacts.append(bact)
             max_shape = max_box(max_shape, bact.img_shape())
         if self.debug:
-            cv2.imwrite(os.path.join(debug_path, "debug" + image_name), debug_img)
+            cv2.imwrite(os.path.join(debug_path, f"num_bacts_{len(bacts)}_" + image_name), debug_img)
         return final_bacts, max_shape
     
     
