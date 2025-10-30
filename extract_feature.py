@@ -190,22 +190,6 @@ def invert_img(img):
     new_img -= img
     return new_img.astype(np.uint8)
 
-# Input a grayscaled image only
-# def bg_normalize_img(img):
-#     filtered = invert_img(custom_adaptive_threshold(img, 21, 5))
-#     masked = cv2.bitwise_and(img, img, mask=filtered)
-#     filtered_mean = masked.sum() / filtered.sum()
-
-#     normalized = (img / filtered_mean).astype(np.float32)
-
-#     nmax = np.max(normalized)
-#     nmin = np.min(normalized)
-
-#     new_max = 255.0
-#     new_min = 0.0
-
-#     final = (normalized - nmin) * ((new_max - new_min) / (nmax - nmin)) + new_min
-#     return final.astype(np.uint8)
 
 class BacteriaGenerator:
     def __init__(self, size_bounds, max_diameter, debug, cover_corners):
@@ -337,15 +321,9 @@ class BacteriaGenerator:
         # smoothed_image = cv2.GaussianBlur(img, (3,3), sigmaX=0.8, sigmaY=0.8)
         grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
         grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
-        mag = np.sqrt(grad_x**2 + grad_y**2)
-        scale = np.median(mag)
-
-        print(scale)
-
-        # grad_x[np.abs(grad_x) >= 255 - C] = 0
-        grad_x[np.abs(grad_x / scale) <= C] = 0
-        # grad_y[np.abs(grad_y) >= 255 - C] = 0
-        grad_y[np.abs(grad_y / scale) <= C] = 0
+        
+        grad_x[np.abs(grad_x) <= C] = 0
+        grad_y[np.abs(grad_y) <= C] = 0
 
         preprocessed_grad_x = grad_x.copy()
         for i, row in enumerate(grad_x):
