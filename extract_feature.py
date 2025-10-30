@@ -29,8 +29,29 @@ def get_feature_img(arr_of_imgs, arr_of_backgrounds):
     for i in range(len(arr_of_imgs)):
         img = arr_of_imgs[i]
         bg = arr_of_backgrounds[i]
-        # results.append(img - (img != 0) * bg)
-        results.append(img / bg)
+        r_img = img[:, :, 0]
+        g_img = img[:, :, 1]
+        b_img = img[:, :, 2]
+        r_bact = np.mean(r_img[r_img != 0])
+        g_bact = np.mean(g_img[g_img != 0])
+        b_bact = np.mean(b_img[b_img != 0])
+        bact = np.array([r_bact, g_bact, b_bact])
+
+        # bias = bg # shift the background to zero
+        # scale_factor = 1 / (bg - bact) # scale the img so that bact and background difference is 1
+        scale_factor = np.zeros_like(bg, dtype=np.float32)
+        for i, val in enumerate(bact - bg):
+            if abs(val) < 1e-4:
+                scale_factor[i] = 0.0
+            else:
+                scale_factor[i] = 1.0 / val
+
+        rescaled_img = (img - bg) * scale_factor
+        rescaled_img[img == 0] = 0
+        # cv2.imshow("", rescaled_img)
+        # cv2.waitKey(1)
+        results.append(rescaled_img)
+
     return np.array(results)
     
 # largest box to include both shapes
@@ -162,23 +183,6 @@ def invert_img(img):
     new_img -= img
     return new_img.astype(np.uint8)
 
-# Input a grayscaled image only
-# def bg_normalize_img(img):
-#     filtered = invert_img(custom_adaptive_threshold(img, 21, 5))
-#     masked = cv2.bitwise_and(img, img, mask=filtered)
-#     filtered_mean = masked.sum() / filtered.sum()
-
-#     normalized = (img / filtered_mean).astype(np.float32)
-
-#     nmax = np.max(normalized)
-#     nmin = np.min(normalized)
-
-#     new_max = 255.0
-#     new_min = 0.0
-
-#     final = (normalized - nmin) * ((new_max - new_min) / (nmax - nmin)) + new_min
-#     return final.astype(np.uint8)
-
 class BacteriaGenerator:
     def __init__(self, size_bounds, max_diameter, debug, cover_corners):
         self.size_bounds = size_bounds
@@ -193,7 +197,6 @@ class BacteriaGenerator:
         grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
 
         gradient_magnitude = np.maximum(np.abs(grad_x), np.abs(grad_y))
-        # ret, thresh = cv2.threshold(img,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
         
         grad_img = invert_img(gradient_magnitude)
         img = np.logical_and(grad_img <= 255-C, grad_img >= C).astype(np.uint8)
@@ -307,12 +310,24 @@ class BacteriaGenerator:
         img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
         smoothed_image = img
         # smoothed_image = cv2.GaussianBlur(img, (3,3), sigmaX=0.8, sigmaY=0.8)
-        grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
-        grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
+        bg_color_estimate = np.median(smoothed_image)
+        bact_img_estimate = smoothed_image[np.abs(smoothed_image - bg_color_estimate) > 5]
+        # img[np.abs(img - bg_color_estimate) <= 10] = 0
 
-        grad_x[np.abs(grad_x) >= 255 - C] = 0
+        bact_color_estimate = np.mean(bact_img_estimate)
+        # print(bact_color_estimate)
+
+        if abs(bg_color_estimate - bact_color_estimate) < 1e-4:
+            scale_factor = 0.0
+        else:
+            scale_factor = 1 / (bact_color_estimate - bg_color_estimate)
+
+        grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1) * scale_factor
+        grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1) * scale_factor
+
+        print("Background-Bacteria diff estimate: {}".format(scale_factor))
+
         grad_x[np.abs(grad_x) <= C] = 0
-        grad_y[np.abs(grad_y) >= 255 - C] = 0
         grad_y[np.abs(grad_y) <= C] = 0
 
         preprocessed_grad_x = grad_x.copy()
@@ -327,12 +342,6 @@ class BacteriaGenerator:
             preprocessed_grad_y[:, i] = filled_col
 
         preprocessed = cv2.bitwise_and(preprocessed_grad_x, preprocessed_grad_y).astype(np.uint8)
-    
-        grad_x_vis, grad_y_vis, quad_vis = self.sign_visualize(grad_x, grad_y, eps=C)
-        if self.debug:
-            cv2.imwrite(os.path.join(debug_path, f'grad_x_vis_{img_name}'), grad_x_vis)
-            cv2.imwrite(os.path.join(debug_path, f'grad_y_vis_{img_name}'), grad_y_vis)
-            cv2.imwrite(os.path.join(debug_path, f'quad_vis_{img_name}'), quad_vis)
         return preprocessed
     
     def sign_visualize(self, grad_x, grad_y, eps=1e-6):
