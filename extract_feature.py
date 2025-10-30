@@ -25,12 +25,40 @@ def get_symmetries(img):
     return symmetries
 
 def get_feature_img(arr_of_imgs, arr_of_backgrounds):
+    # results = []
+    # for i in range(len(arr_of_imgs)):
+    #     img = arr_of_imgs[i]
+    #     bg = arr_of_backgrounds[i]
+    #     # results.append(img - (img != 0) * bg)
+    #     results.append(img / bg)
+    # return np.array(results)
     results = []
     for i in range(len(arr_of_imgs)):
         img = arr_of_imgs[i]
         bg = arr_of_backgrounds[i]
-        # results.append(img - (img != 0) * bg)
-        results.append(img / bg)
+        r_img = img[:, :, 0]
+        g_img = img[:, :, 1]
+        b_img = img[:, :, 2]
+        r_bact = np.mean(r_img[r_img != 0])
+        g_bact = np.mean(g_img[g_img != 0])
+        b_bact = np.mean(b_img[b_img != 0])
+        bact = np.array([r_bact, g_bact, b_bact])
+
+        # bias = bg # shift the background to zero
+        # scale_factor = 1 / (bg - bact) # scale the img so that bact and background difference is 1
+        scale_factor = np.zeros_like(bg, dtype=np.float32)
+        for i, val in enumerate(bact - bg):
+            if abs(val) < 1e-4:
+                scale_factor[i] = 0.0
+            else:
+                scale_factor[i] = 1.0 / val
+
+        rescaled_img = (img - bg) * scale_factor
+        rescaled_img[img == 0] = 0
+        # cv2.imshow("", rescaled_img)
+        # cv2.waitKey(1)
+        results.append(rescaled_img)
+
     return np.array(results)
     
 # largest box to include both shapes
@@ -309,11 +337,15 @@ class BacteriaGenerator:
         # smoothed_image = cv2.GaussianBlur(img, (3,3), sigmaX=0.8, sigmaY=0.8)
         grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
         grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
+        mag = np.sqrt(grad_x**2 + grad_y**2)
+        scale = np.median(mag)
 
-        grad_x[np.abs(grad_x) >= 255 - C] = 0
-        grad_x[np.abs(grad_x) <= C] = 0
-        grad_y[np.abs(grad_y) >= 255 - C] = 0
-        grad_y[np.abs(grad_y) <= C] = 0
+        print(scale)
+
+        # grad_x[np.abs(grad_x) >= 255 - C] = 0
+        grad_x[np.abs(grad_x / scale) <= C] = 0
+        # grad_y[np.abs(grad_y) >= 255 - C] = 0
+        grad_y[np.abs(grad_y / scale) <= C] = 0
 
         preprocessed_grad_x = grad_x.copy()
         for i, row in enumerate(grad_x):
@@ -328,11 +360,11 @@ class BacteriaGenerator:
 
         preprocessed = cv2.bitwise_and(preprocessed_grad_x, preprocessed_grad_y).astype(np.uint8)
     
-        grad_x_vis, grad_y_vis, quad_vis = self.sign_visualize(grad_x, grad_y, eps=C)
-        if self.debug:
-            cv2.imwrite(os.path.join(debug_path, f'grad_x_vis_{img_name}'), grad_x_vis)
-            cv2.imwrite(os.path.join(debug_path, f'grad_y_vis_{img_name}'), grad_y_vis)
-            cv2.imwrite(os.path.join(debug_path, f'quad_vis_{img_name}'), quad_vis)
+        # grad_x_vis, grad_y_vis, quad_vis = self.sign_visualize(grad_x, grad_y, eps=C)
+        # if self.debug:
+        #     cv2.imwrite(os.path.join(debug_path, f'grad_x_vis_{img_name}'), grad_x_vis)
+        #     cv2.imwrite(os.path.join(debug_path, f'grad_y_vis_{img_name}'), grad_y_vis)
+        #     cv2.imwrite(os.path.join(debug_path, f'quad_vis_{img_name}'), quad_vis)
         return preprocessed
     
     def sign_visualize(self, grad_x, grad_y, eps=1e-6):
