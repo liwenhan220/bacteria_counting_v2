@@ -8,7 +8,7 @@ from frontier import Frontier
 from bacteria import Bacteria
 import pdb
 import os
-from hyperparameters import C
+from hyperparameters import *
 #####################
 # Utilities 
 
@@ -25,13 +25,6 @@ def get_symmetries(img):
     return symmetries
 
 def get_feature_img(arr_of_imgs, arr_of_backgrounds):
-    # results = []
-    # for i in range(len(arr_of_imgs)):
-    #     img = arr_of_imgs[i]
-    #     bg = arr_of_backgrounds[i]
-    #     # results.append(img - (img != 0) * bg)
-    #     results.append(img / bg)
-    # return np.array(results)
     results = []
     for i in range(len(arr_of_imgs)):
         img = arr_of_imgs[i]
@@ -39,26 +32,21 @@ def get_feature_img(arr_of_imgs, arr_of_backgrounds):
         r_img = img[:, :, 0]
         g_img = img[:, :, 1]
         b_img = img[:, :, 2]
-        r_bact = np.mean(r_img[r_img != 0])
-        g_bact = np.mean(g_img[g_img != 0])
-        b_bact = np.mean(b_img[b_img != 0])
-        bact = np.array([r_bact, g_bact, b_bact])
+        front_r = np.mean(r_img[r_img != 0])
+        front_g = np.mean(g_img[g_img != 0])
+        front_b = np.mean(b_img[b_img != 0])
+        bact_color = np.array([front_r, front_g, front_b])
+        scale = np.zeros_like(bact_color)
+        for i, val in enumerate(bact_color - bg):
+            if abs(val) >= 1e-4:
+                scale[i] = 1/val
 
-        # bias = bg # shift the background to zero
-        # scale_factor = 1 / (bg - bact) # scale the img so that bact and background difference is 1
-        scale_factor = np.zeros_like(bg, dtype=np.float32)
-        for i, val in enumerate(bact - bg):
-            if abs(val) < 1e-4:
-                scale_factor[i] = 0.0
-            else:
-                scale_factor[i] = 1.0 / val
-
-        rescaled_img = (img - bg) * scale_factor
-        rescaled_img[img == 0] = 0
-        # cv2.imshow("", rescaled_img)
-        # cv2.waitKey(1)
-        results.append(rescaled_img)
-
+        # normalized_img = (img - bg) * scale
+        normalized_img = (img - bg)
+        normalized_img[img == 0] = 0
+        results.append(normalized_img)
+        # print(normalized_img[normalized_img!=0])
+        # results.append(img) # Not using bg normalization
     return np.array(results)
     
 # largest box to include both shapes
@@ -248,7 +236,7 @@ class BacteriaGenerator:
             cv2.imwrite(os.path.join(debug_path, 'quad_vis.png'), quad_vis)
         return grad_img
     
-    def fill_1d_region(self, row, left_confirm_count = 2, max_grad_diameter = 5, edge_shrink_length = 1):
+    def fill_1d_region(self, row, left_confirm_count = 2, max_grad_diameter = MAX_DIAMETER - 6, edge_shrink_length = 1):
         # determined filled region
         # Protocol: if left is not found but grad change occured, prepare to record pixels and keep going right
         # If left is found, right is not found and the grad sign is the same, still on the left region of the bacteria, keep going right
@@ -318,7 +306,7 @@ class BacteriaGenerator:
     def preprocess_v5(self, orig_img, C=C, debug_path="", img_name=""):
         img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2GRAY)
         smoothed_image = img
-        # smoothed_image = cv2.GaussianBlur(img, (3,3), sigmaX=0.8, sigmaY=0.8)
+        # smoothed_image = cv2.GaussianBlur(img, (3, 3), sigmaX=0.8, sigmaY=0.8)
         grad_x = cv2.Sobel(smoothed_image, cv2.CV_32F, 1, 0, ksize=1)
         grad_y = cv2.Sobel(smoothed_image, cv2.CV_32F, 0, 1, ksize=1)
         

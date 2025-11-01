@@ -182,4 +182,4 @@ def train_loop(num_epochs, model_path, log_path, model_type = "lenet", load_path
     
 if __name__ == "__main__":
     # train_loop(150, 'models', 'logs', load_path=['logs', 'models'])
-    train_loop(50, 'grad_model', 'grad_log', load_path=None)
+    train_loop(150, 'grad_model', 'grad_log', load_path=None)
